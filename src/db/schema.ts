@@ -22,7 +22,12 @@ export const cards = pgTable("cards", {
   currency: text("currency").notNull().default("USD"),
   colorFrom: text("color_from").notNull().default("#1e3a5f"),
   colorTo: text("color_to").notNull().default("#2d5a87"),
+  lastFourDigits: text("last_four_digits"), // e.g., "1234"
   openDate: text("open_date"), // YYYY-MM-DD
+  annualFeeDate: text("annual_fee_date"), // YYYY-MM-DD (next annual fee date)
+  statementDay: integer("statement_day"), // 1-31 day of month
+  paymentDueDay: integer("payment_due_day"), // 1-31 day of month
+  creditLimit: real("credit_limit"),
   anniversaryMonth: integer("anniversary_month"), // 1-12
   anniversaryDay: integer("anniversary_day"), // 1-31
   status: text("status").notNull().default("active"), // active, closed

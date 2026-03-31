@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { cards, benefits, benefitUsages } from "@/db/schema";
+import { cards, benefits, benefitUsages, taskItems } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getCycleBoundaries } from "@/lib/utils";
 
@@ -19,7 +19,6 @@ export type BenefitWithUsage = {
   activationInstructions: string | null;
   externalUrl: string | null;
   sortOrder: number;
-  // computed
   cycleStart: string;
   cycleEnd: string;
   daysLeft: number;
@@ -54,6 +53,13 @@ export async function GET(
       .orderBy(benefits.sortOrder);
 
     const allUsages = await db.select().from(benefitUsages);
+
+    const tasks = await db
+      .select()
+      .from(taskItems)
+      .where(eq(taskItems.cardId, cardId))
+      .orderBy(taskItems.sortOrder);
+
     const now = new Date();
 
     const benefitsWithUsage: BenefitWithUsage[] = cardBenefits.map((benefit) => {
@@ -123,9 +129,49 @@ export async function GET(
       };
     });
 
-    return NextResponse.json({ card, benefits: benefitsWithUsage });
+    return NextResponse.json({ card, benefits: benefitsWithUsage, tasks });
   } catch (error) {
     console.error("Error fetching card:", error);
     return NextResponse.json({ error: "Failed to fetch card" }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const cardId = parseInt(id, 10);
+    const body = await request.json();
+
+    const allowedFields = [
+      "name", "shortName", "lastFourDigits", "openDate",
+      "annualFeeDate", "statementDay", "paymentDueDay",
+      "creditLimit", "anniversaryMonth", "anniversaryDay",
+      "notes", "status",
+    ];
+
+    const updates: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (field in body) {
+        updates[field] = body[field];
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "No valid fields" }, { status: 400 });
+    }
+
+    const [updated] = await db
+      .update(cards)
+      .set(updates)
+      .where(eq(cards.id, cardId))
+      .returning();
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("Error updating card:", error);
+    return NextResponse.json({ error: "Failed to update card" }, { status: 500 });
   }
 }
